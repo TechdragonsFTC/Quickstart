@@ -99,6 +99,7 @@ public class AutonomoSpecimen extends OpMode {
                 setPathState(1);
                 break;
             case 1:
+
                 if (!follower.isBusy()){
                     follower.followPath(trajzi, 1.0, true);
                 }

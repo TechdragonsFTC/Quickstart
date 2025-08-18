@@ -93,6 +93,14 @@ public class TeleoperadoSp extends OpMode {
         telemetry.addData("Y", follower.getPose().getY());
         telemetry.addData("Heading in Degrees", Math.toDegrees(follower.getPose().getHeading()));
 
+        telemetry.addData("esq:", Esq.getCurrentPosition());
+        telemetry.addData("dir:", Dir.getCurrentPosition());
+
+        telemetry.addData("joystick direito:", gamepad2.right_stick_y);
+
+        telemetry.addData("slide:", slide.getCurrentPosition());
+        telemetry.addData("joystick esquerdo:", gamepad2.left_stick_y);
+
         /* Update Telemetry to the Driver Hub */
         telemetry.update();
     }
@@ -105,7 +113,7 @@ public class TeleoperadoSp extends OpMode {
     //TODO: verificar valores
     public void servo() {
         //TODO: abrir e fechar
-        if (gamepad2.right_stick_button) {
+        if (gamepad2.right_bumper) {
             //abrir
             ponta.setPosition(0.0);
         }else{
@@ -122,7 +130,7 @@ public class TeleoperadoSp extends OpMode {
             garra.setPosition(0.95);
             telemetry.addLine("Clip");
         }else if(gamepad2.b){
-            garra.setPosition(0.6);
+            garra.setPosition(0.5);
             telemetry.addLine("90");
         }
     }
@@ -131,6 +139,7 @@ public class TeleoperadoSp extends OpMode {
     //TODO: verificar valores
     public void base() {
 
+        double limitBase = 920;
         double j = -gamepad2.right_stick_y;
         int currentL = Esq.getCurrentPosition();
         int currentR = Dir.getCurrentPosition();
@@ -138,20 +147,20 @@ public class TeleoperadoSp extends OpMode {
         // Se o joystick for movido para cima e a posição for menor que 0, move o motor
         if (j > 0) {
             Esq.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            Esq.setPower(0.35);
+            Esq.setPower(-0.35);
 
             Dir.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            Dir.setPower(0.35);
+            Dir.setPower(-0.35);
 
             modeBase = false; // O motor está se movendo, então não está segurando posição
         }
         // Se o joystick for movido para baixo e ainda não atingiu o limite, move o motor
         else if (j < 0) {
             Esq.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            Esq.setPower(-0.22);
+            Esq.setPower(0.22);
 
             Dir.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            Dir.setPower(-0.22);
+            Dir.setPower(0.22);
             modeBase = false; // O motor está se movendo, então não está segurando posição
         }
         // Se o joystick estiver parado e o motor ainda não estiver segurando a posição
@@ -163,38 +172,53 @@ public class TeleoperadoSp extends OpMode {
             // O operador ! (negação) verifica se holdingPosition é false
             Esq.setTargetPosition(currentL); // Define a posição atual como alvo
             Esq.setMode(DcMotor.RunMode.RUN_TO_POSITION); // Mantém o motor na posição
-            Esq.setPower(1); // Aplica uma pequena potência para segurar a posição
+            Esq.setPower(0.6); // Aplica uma pequena potência para segurar a posição
 
             Dir.setTargetPosition(currentR); // Define a posição atual como alvo
             Dir.setMode(DcMotor.RunMode.RUN_TO_POSITION); // Mantém o motor na posição
-            Dir.setPower(1);
+            Dir.setPower(0.6);
 
             modeBase = true; // Marca que o motor está segurando a posição
+            telemetry.addLine("true");
+        }
+
+        if (Math.abs(Esq.getCurrentPosition())>= limitBase){
+            Esq.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            Dir.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            // O operador ! (negação) verifica se holdingPosition é false
+            Esq.setTargetPosition(-920); // Define a posição atual como alvo
+            Esq.setMode(DcMotor.RunMode.RUN_TO_POSITION); // Mantém o motor na posição
+            Esq.setPower(-0.5); // Aplica uma pequena potência para segurar a posição
+
+            Dir.setTargetPosition(-920); // Define a posição atual como alvo
+            Dir.setMode(DcMotor.RunMode.RUN_TO_POSITION); // Mantém o motor na posição
+            Dir.setPower(0.5);
         }
 
         if (gamepad2.dpad_up) {
             Esq.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             Dir.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         }
+
     }
     //TODO: Slide
     //TODO: verificar valores
     public void atuador() {
 
-        int current = slide.getCurrentPosition();
-        int limit = -2990;
+        int current = Math.abs(slide.getCurrentPosition());
+        int limit = -2900;
         double joystickInput = gamepad2.left_stick_y; // Captura a entrada do joystick
-
         // Se o joystick for movido para cima e a posição for menor que 0, move o motor
-        if (joystickInput > 0 && current < 0) {
+        if (joystickInput > 0) {
             slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            slide.setPower(joystickInput);
+            slide.setPower(1);
             holdingPosition = false; // O motor está se movendo, então não está segurando posição
         }
         // Se o joystick for movido para baixo e ainda não atingiu o limite, move o motor
         else if (joystickInput < 0 /*&& current > limit*/) {
             slide.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            slide.setPower(joystickInput);
+            slide.setPower(-1);
             holdingPosition = false; // O motor está se movendo, então não está segurando posição
         }
         // Se o joystick estiver parado e o motor ainda não estiver segurando a posição
@@ -204,10 +228,18 @@ public class TeleoperadoSp extends OpMode {
             slide.setPower(0.3); // Aplica uma pequena potência para segurar a posição
             holdingPosition = true; // Marca que o motor está segurando a posição
         }
-
+        if(current > 1500 && Esq.getCurrentPosition() > -450){
+            slide.setTargetPosition(-1500);
+            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slide.setPower(0.3);
+        }
+        if(current > Math.abs(limit)){
+            slide.setTargetPosition(limit);
+            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slide.setPower(0.2);
+        }
         if (gamepad2.x) {
             slide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         }
     }
-
 }
