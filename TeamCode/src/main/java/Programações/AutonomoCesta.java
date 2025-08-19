@@ -18,6 +18,10 @@ public class AutonomoCesta extends OpMode {
     Pose pose;
     Follower follower;
 
+
+
+    
+
     private final Pose startPose = new Pose(0, 0, Math.toRadians(180));
     public void buildPaths(){
 
