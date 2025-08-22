@@ -1,121 +1,316 @@
 package Programações;
 
+//importações referentes ao pedro pathing
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.localization.Pose;
 import com.pedropathing.pathgen.BezierCurve;
 import com.pedropathing.pathgen.BezierLine;
-import com.pedropathing.pathgen.Path;
 import com.pedropathing.pathgen.PathChain;
 import com.pedropathing.pathgen.Point;
 import com.pedropathing.util.Constants;
 import com.pedropathing.util.Timer;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import  com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.pedropathing.pathgen.Point;
 
-import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.hardware.limelightvision.LLResultTypes;
-import com.qualcomm.hardware.limelightvision.LLStatus;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
-
-import Robô.AtuadorDoisEstagios_Servos;
-import Robô.AtuadorDoisEstagios_VerticalHorizontal;
 import pedroPathing.constants.FConstants;
 import pedroPathing.constants.LConstants;
 
 @Autonomous(name = "Clip México Oficial")
-public class AutonomoSpecimen extends OpMode {
-    Limelight3A limelight;
-    private Servo servo;
-    double tx, ty, ta;
+public class autoAribaClip extends OpMode {
+
+    public void clipPos(){
+        servo.setPosition(0.95);
+        clippos = 1;
+        pickpos = 0;
+        specimenpickpos = 0;
+    }
+    public void pickPos(){
+        servo.setPosition(0.0);
+        clippos = 0;
+        pickpos = 1;
+        specimenpickpos = 0;
+
+    }
+    public void specimenPickpos(){
+        servo.setPosition(0.45);
+        clippos = 0;
+        pickpos= 0;
+        specimenpickpos = 1;
+    }
+    public void closed(){
+        garra.setPosition(0.0);
+        isopen = 0;
+    }
+    public void open(){
+        garra.setPosition(0.6);
+        isopen = 1;
+    }
+    public void subir(int target){
+
+        while (Left.getCurrentPosition() >= target){
+
+            Left.setTargetPosition(target);
+            Right.setTargetPosition(-target);
+
+            Left.setPower(0.8);
+            Right.setPower(0.8);
+            holdArm = 0;
+        }
+        Left.setPower(0.0);
+        Right.setPower(0.0);
+        holdArm =1;
+    }
+    public void descer(int target){
+
+        while (Left.getCurrentPosition() <= target){
+
+            Left.setTargetPosition(-target);
+            Right.setTargetPosition(target);
+
+            Left.setPower(-0.3);
+            Right.setPower(-0.3);
+            holdArm = 0;
+        }
+        Left.setPower(0.0);
+        Right.setPower(0.0);
+        holdArm = 1;
+    }
+    public void hold(){
+
+        PIDFController controller;
+
+        double minPower = 0.7;
+        double maxPower = 1.0;
+        controller = new PIDFController(12, 4, 5, 13);
+        controller.setInputRange(-4000, 4000);
+        controller.setOutputRange(minPower, maxPower);
+
+        double powerM = maxPower + controller.getComputedOutput(Left.getCurrentPosition());
+        double powerM1 = maxPower + controller.getComputedOutput(Right.getCurrentPosition());
+
+        Left.setTargetPosition(Left.getCurrentPosition());
+        Right.setTargetPosition(Right.getCurrentPosition());
+
+        Left.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        Right.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        Left.setPower(powerM);
+        Right.setPower(powerM1);
+
+    }
+    public void extender( int target){
+
+        while (slide.getCurrentPosition() >= target){
+            slide.setTargetPosition(target);
+            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slide.setPower(-1.0);
+            holdSlide = 0;
+        }
+        slide.setPower(0.0);
+        holdSlide = 1;
+    }
+    public void recuar(int target){
+
+        while(slide.getCurrentPosition() <= target){
+            slide.setTargetPosition(target);
+            slide.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slide.setPower(1.0);
+            holdSlide = 0;
+        }
+        slide.setPower(0.0);
+        holdSlide = 1;
+    }
+    public void stay(){
+        int currentPosition = slide.getCurrentPosition();
+
+        slide.setTargetPosition(currentPosition); // Define a posição atual como alvo
+        slide.setMode(DcMotor.RunMode.RUN_TO_POSITION); // Mantém o motor na posição
+        slide.setPower(0.1); // Aplica uma pequena potência para segurar a posição
+    }
+    int isopen;
+    int num;
+    int  specimenpickpos, clippos, pickpos;
+    int holdSlide;
+    int holdArm;
     Pose pose;
-    AtuadorDoisEstagios_VerticalHorizontal atuador;
-    AtuadorDoisEstagios_Servos servos;
-    private Follower follower;
-    private Timer pathTimer, opmodeTimer;
-    private int pathState;
-    private PathChain trajetória1, trajetória2, trajetoriapa, trajzi ;
-    private final Pose trajsla = new Pose(9.000, 62.000, Point.CARTESIAN);
-    private final Pose trajsla2 = new Pose(38.000, 62.000, Point.CARTESIAN);
-    private final Pose ponto3 = new Pose(38.000, 62.000, Point.CARTESIAN);
-    private final Pose controle= new Pose(22.065, 4.645, Point.CARTESIAN);
-    private final Pose control2 = new Pose(61.000, 59.000, Point.CARTESIAN);
-    private final Pose ponto4 = new Pose(58.000, 27.000, Point.CARTESIAN);
-    private final Pose startPose = new Pose(0, 70, Math.toRadians(180.00));
-    private final Pose ClipPose = new Pose(23, 70, Math.toRadians(180.00));
-    private final Pose Move1 = new Pose(23, 50, Math.toRadians(180.00));
-    private final Pose Move2 = new Pose(40, 50, Math.toRadians(180.00));
-    private final Pose Move3 = new Pose(40, 20, Math.toRadians(180.00));
+    private DcMotorEx slide, Left, Right;
+    private Servo garra; //servo da garra/ponta
+    private Servo servo;
+    private Follower follower; //sla tbm
+    private Timer pathTimer, opmodeTimer; //sla ja veio no código
+    private int pathState; //variável de controle das trajetórias e ações
+    // y = lados (se for maior vai para a direita)
+    // x = frente e tras (se for maior vai para frente)
+    private final Pose startPose = new Pose(0, 71, Math.toRadians(180.00)); //posição inicial do robô
+    private final Pose ClipPose = new Pose(22.4, 71, Math.toRadians(180.00));
+    private final Pose Control1 = new Pose(6, 20, Math.toRadians(180.00));
+    private final Pose move2 = new Pose(49, 33, Math.toRadians(180.00)); //vai para frente
+    private final Pose move3 = new Pose(49, 15, Math.toRadians(180.00));
+    private final Pose move4 = new Pose(7.5, 15, Math.toRadians(180.00)); //empurra o sample para o jogador humano
+    private final Pose move5 = new Pose(49,5, Math.toRadians(180.00));// vai para a direita na frente do segundo sample
+    private final Pose move6 = new Pose(6.2, 5, Math.toRadians(180.00)); //empurra o segundo sample para a área do jogador humano
+    private final Pose control2 = new Pose(10, 70, Math.toRadians(180.00));
+    private final Pose clip2 = new Pose(23, 75, Math.toRadians(180.00));
+    private final Pose moveX = new Pose(29, 75, Math.toRadians(180.00));
+    private final Pose move7 = new Pose(14, 30, Math.toRadians(180.00));
+    private final Pose move8 = new Pose(6.2, 30, Math.toRadians(180.00));
+    private final Pose clip3 = new Pose(22, 90, Math.toRadians(180.00));
+    private PathChain traj1, traj2, traj3, traj4, traj5, traj6, traj7; //conjunto de trajetórias
 
     public void buildPaths() {
 
-        trajetoriapa = follower.pathBuilder()
-                .addPath(new BezierLine(new Point(trajsla), new Point(trajsla2)))
-                .setConstantHeadingInterpolation(Math.toRadians(0))
-                .build();
-
-        trajzi = follower.pathBuilder().addPath(new BezierCurve(new Point(ponto3), new Point(controle), new Point(control2), new Point(ponto4)))
-                .setConstantHeadingInterpolation(Math.toRadians(0))
-                .build();
-
-
-        trajetória1 = follower.pathBuilder()
+        traj1 = follower.pathBuilder()
+                //vai para frente para clipar
                 .addPath(new BezierLine(new Point(startPose), new Point(ClipPose)))
-                .setConstantHeadingInterpolation(ClipPose.getHeading())
-
-                .setPathEndTimeoutConstraint(0)
-
-                .addPath(new BezierLine(new Point(ClipPose), new Point(Move1)))
-                .setConstantHeadingInterpolation(Move1.getHeading())
-
-                .setPathEndTimeoutConstraint(200)
-                .addParametricCallback(0.5, () -> atuador.extender_horizontal())
-
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
                 .build();
 
-        trajetória2 = follower.pathBuilder()
-                .addPath(new BezierLine(new Point(Move1), new Point(Move2)))
-                .setConstantHeadingInterpolation(Move2.getHeading())
+        traj2 = follower.pathBuilder()
+                .addPath(new BezierCurve(new Point(ClipPose), new Point(Control1), new Point(move2)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(move2), new Point(move3)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(move3), new Point(move4)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(move4), new Point(move3)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .build();
 
-                .setPathEndTimeoutConstraint(0)
+        traj3 = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(move3), new Point(move5)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(move5), new Point(move6)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .build();
 
-                .addPath(new BezierLine(new Point(Move2), new Point(Move3)))
-                .setConstantHeadingInterpolation(Move3.getHeading())
+        traj4 = follower.pathBuilder()
+                .addPath(new BezierCurve(new Point(move6), new Point(control2), new Point(clip2)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(clip2), new Point(moveX)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .build();
 
-                .setPathEndTimeoutConstraint(200)
-                .addParametricCallback(0.5, () -> servos.abrir())
+        traj5 = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(moveX), new Point(move7)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .addPath(new BezierLine(new Point(move7), new Point(move8)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
+                .build();
 
+        traj6 = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(move8), new Point(clip3)))
+                .setConstantHeadingInterpolation(Math.toRadians(180.00))
                 .build();
     }
 
+    //dependendo de como funcionar a movimentação do atuador, esses cases vão precisar ser dividos e dividir as trajetórias neles, testar antes
     public void autonomousPathUpdate() {
         switch (pathState) {
+            //0.4
             case 0:
-                if (!follower.isBusy()){
-                    follower.followPath(trajetoriapa, 1.0, true);
-                }
+                follower.followPath(traj1, 0.6, false);
+                closed();
+                subir(-620);
+                extender(-1170);
                 setPathState(1);
                 break;
+
             case 1:
-                if (!follower.isBusy()){
-                    follower.followPath(trajzi, 1.0, true);
+                if (!follower.isBusy() && pathState == 1){
+                    extender(-1900);
+                    open();
+                    num = 1;
                 }
-                setPathState(2);
+                if (num == 1){
+                    //mudar
+                    recuar(-250);
+                    descer(-10);
+                    specimenPickpos();
+                    //0.75
+                    follower.followPath(traj2, 1.0, false);
+                    setPathState(2);
+                }
                 break;
             case 2:
-                LLResult result = limelight.getLatestResult();
-                if (result != null && result.isValid()) {
-                    tx = result.getTx();
-                    ta = result.getTa();
-                    // entra no controle por visão
-                    limelight.getLatestResult().getPythonOutput();
-                    }
+                if (!follower.isBusy() && pathState ==2){
+                    //0.6
+                    follower.followPath(traj3, 0.8, false);
+                    setPathState(3);//
+                }
                 break;
+            case 3:
+                if(!follower.isBusy() && pathState == 3){
+                    closed();
+                    num = 2;
+                    pathTimer.resetTimer();
+                    setPathState(101);
+                }
+                break;
+            case 4:
+                if(num == 2 && garra.getPosition() == 0.0){
+                    subir(-630);
+                    //0.6
+                    follower.followPath(traj4, 0.8, false);
+                    clipPos();
+                    extender(-1250);
+                    setPathState(5);
+                }
+                break;
+            case 5:
+                if (!follower.isBusy() && pathState == 5){
+                    extender(-2000);
+                    open();
+                    recuar(-100);
+                    descer(-10);
+                    specimenPickpos();
+                    setPathState(6);
+                }
+                break;
+            case 6:
+                //0.9
+                follower.followPath(traj5, 1.0, false);
+                setPathState(7);
+
+                break;
+            case 7:
+                if (!follower.isBusy() && pathState == 7){
+                    closed();
+                    setPathState(102);
+                }
+                break;
+            case 8:
+                subir(-650);
+                //0.9
+                follower.followPath(traj6, 1.0, false);
+                clipPos();
+                extender(-1150);
+                setPathState(9);
+                break;
+            case 9:
+                if(!follower.isBusy() && pathState == 9){
+                    extender(-1900);
+                    open();
+                    recuar(-100);
+                    descer(0);
+                }
+                //estaciona
+
+            case 101:
+                if(pathTimer.getElapsedTimeSeconds() > 1){
+                    setPathState(4);
+                }
+            case 102:
+                if(pathTimer.getElapsedTimeSeconds() > 1){
+                    setPathState(8);
+                }
         }
     }
 
+    //controle das trajetórias
     public void setPathState(int pState) {
         pathState = pState;
         pathTimer.resetTimer();
@@ -124,67 +319,115 @@ public class AutonomoSpecimen extends OpMode {
     //loop
     @Override
     public void loop() {
+
         telemetry.addData("path state", pathState);
         telemetry.addData("x", follower.getPose().getX());
         telemetry.addData("y", follower.getPose().getY());
         telemetry.addData("heading", follower.getPose().getHeading());
+        telemetry.addData("braço left", Left.getCurrentPosition());
+        telemetry.addData("slide position", slide.getCurrentPosition());
         telemetry.update();
-
-        LLResult result = limelight.getLatestResult();
 
         pose = follower.getPose();
 
-        if (result != null && result.isValid()) {
-            tx = result.getTx(); // How far left or right the target is (degrees)
-            ty = result.getTy(); // How far up or down the target is (degrees)
-            ta = result.getTa(); // How big the target looks (0%-100% of the image)
-
-            telemetry.addData("Target X", tx);
-            telemetry.addData("Target Y", ty);
-            telemetry.addData("Target Area", ta);
-        } else {
-            telemetry.addData("Limelight", "No Targets");
+        //talvez precise mudar
+        if (holdSlide == 1){
+            stay();
         }
 
-        servos.transferir();
+        if (holdArm == 1){
+            hold();
+        }
+
+        if (isopen == 0){
+            garra.setPosition(0);
+        }
+        if (clippos == 1){
+            servo.setPosition(0.95);
+        }
+        if (pickpos == 1){
+            servo.setPosition(0.0);
+        }
+        if (specimenpickpos == 1){
+            servo.setPosition(0.45);
+        }
+
         follower.update();
         autonomousPathUpdate();
+
     }
 
+    //se precisar fazer alguma ação no init tem que por aq
     @Override
     public void init() {
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.setPollRateHz(100); // This sets how often we ask Limelight for data (100 times per second)
-        limelight.pipelineSwitch(0); // Switch to pipeline number 0
-        limelight.start(); // This tells Limelight to start looking!
 
+        holdSlide = 0;
 
+        holdArm = 1;
+
+        isopen = 0;
+
+        clippos = 1;
+        pickpos = 0;
+        specimenpickpos = 0;
+
+        slide = hardwareMap.get(DcMotorEx.class, "gobilda");
+        servo = hardwareMap.get(Servo.class, "servo1");
+        Left = hardwareMap.get(DcMotorEx.class, "armmotorleft");
+        Right = hardwareMap.get(DcMotorEx.class, "armmotorright");
+        garra = hardwareMap.get(Servo.class, "garra");
+
+        servo.setDirection(Servo.Direction.REVERSE);
+
+        Left.setDirection(DcMotorEx.Direction.REVERSE);
         pathTimer = new Timer();
         opmodeTimer = new Timer();
         opmodeTimer.resetTimer();
+
+        slide.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        slide.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
+
+        Left.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        Right.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        garra.setPosition(0);
+
+        servo.setPosition(0.95);
 
         Constants.setConstants(FConstants.class, LConstants.class);
         follower =  new Follower(hardwareMap, FConstants.class, LConstants.class);
         follower.setStartingPose(startPose);
         buildPaths();
-
-        servo = hardwareMap.get(Servo.class, "servo1");
-        servo.setDirection(Servo.Direction.REVERSE);
     }
 
+    //só um loop pra quando dar init
     @Override
     public void init_loop() {
 
     }
 
+    //quando começar ele define a variável de controle como 0 e ja começa as ações
     @Override
     public void start() {
         opmodeTimer.resetTimer();
         setPathState(0);
     }
 
+    //quando mandar parar ele fará oque está aq
     @Override
     public void stop() {
-
+        holdArm = 0;
+        holdSlide = 0;
+        isopen = 1;
+        clippos = 0;
+        pickpos = 0;
+        specimenpickpos = 0;
+        telemetry.addData("path state", pathState);
+        telemetry.addData("x", follower.getPose().getX());
+        telemetry.addData("y", follower.getPose().getY());
+        telemetry.addData("heading", follower.getPose().getHeading());
+        telemetry.addData("braço left", Left.getCurrentPosition());
+        telemetry.addData("slide position", slide.getCurrentPosition());
+        telemetry.update();
     }
 }
